@@ -2,6 +2,7 @@
 
 **Web Scraper** This web scraper takes the article title, href, and publication date from the latest articles up till 1st January 2022 OR up till the **showmore click count** condition is met.
 
+![Screenshot](headlines.png)
 
 ## Installation
 Before running the webscraper, ensure that you have Node.js and npm installed on your system.
