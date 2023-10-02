@@ -70,7 +70,7 @@ app.get('/', async (req, res) => {
         <title>Article Headlines</title>
       </head>
       <body>
-        <h1>Headlines</h1>
+        <h1>Mashable Tech Headlines</h1>
         <ul>
           ${headlines
             .map(
