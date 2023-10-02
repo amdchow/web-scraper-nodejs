@@ -1,44 +1,58 @@
 const express = require('express');
-const axios = require('axios');
-const cheerio = require('cheerio');
-
+const puppeteer = require('puppeteer');
 const app = express();
 const port = 3000;
 
-// Function to scrape article headlines
+// Function to scrape article headlines using Puppeteer
 const webScraper = async () => {
   try {
-    const response = await axios.get('https://sea.mashable.com/tech/');
+    const headlines = [];
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
 
-    if (response.status === 200) {
-      const headlines = [];
-      const $ = cheerio.load(response.data);
+    await page.goto('https://sea.mashable.com/tech/');
+    let showMoreClickCount = 0;
 
-      // Find the <li> elements with class "blogroll"
-      $('li.blogroll').each((index, element) => {
-        // Extract the data of interest
-        const pageUrl = $(element).find('a').attr('href');
-        const date = $(element).find('time.datepublished').text();
-        const name = $(element).find('div.caption').text().trim();
+    while (true) {
+      // Extract data from the current page
+      const scrapedData = await page.evaluate(() => {
+        const data = [];
+        const articles = document.querySelectorAll('li.blogroll');
 
-        // Filter out not interesting data
-        if (name && pageUrl && date) {
-          // Convert the data extracted into a more readable object
-          const blogPost = {
-            url: pageUrl,
-            name: name,
-            date: date,
-          };
+        articles.forEach((article) => {
+          const pageUrl = article.querySelector('a').getAttribute('href');
+          const date = article.querySelector('time.datepublished').textContent;
+          const name = article.querySelector('div.caption').textContent.trim();
 
-          // Add the object containing the scraped data to the headlines array
-          headlines.push(blogPost);
-        }
+          if (name && pageUrl && date) {
+            data.push({ url: pageUrl, name, date });
+          }
+        });
+
+        return data;
       });
 
-      return headlines;
-    } else {
-      throw new Error('Failed to retrieve data from the article.');
+      // Filter out articles older than January 1, 2022
+      const filteredData = scrapedData.filter((article) => {
+        const articleDate = new Date(article.date);
+        return !isNaN(articleDate) && articleDate >= new Date('2022-01-01');
+      });
+
+      headlines.push(...filteredData);
+
+      // Click "Show More" button to load more articles if available, up to 5 times
+      const showMoreButton = await page.$('#showmore');
+      if (showMoreButton && showMoreClickCount < 5) {
+        await showMoreButton.click();
+        await page.waitForTimeout(2000); // Add a delay to allow content to load (adjust as needed)
+        showMoreClickCount++;
+      } else {
+        break; // No more "Show More" button or clicked 5 times, exit the loop
+      }
     }
+
+    await browser.close();
+    return headlines;
   } catch (error) {
     throw error;
   }
@@ -61,7 +75,7 @@ app.get('/', async (req, res) => {
           ${headlines
             .map(
               (headline) =>
-                `<li><a href="${headline.url}">${headline.name}</a> (Published on ${headline.date})</li>`
+                `<li><a href="${headline.url}" target="_blank">${headline.name}</a> (Published on ${headline.date})</li>`
             )
             .join('')}
         </ul>
